@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+
 class TwoLayerNet(object):
   """
   A two-layer fully-connected neural network. The net has an input dimension of
@@ -67,14 +68,25 @@ class TwoLayerNet(object):
     W2, b2 = self.params['W2'], self.params['b2']
     N, D = X.shape
 
+    C = len(self.params['b2'])
+
     # Compute the forward pass
-    scores = None
+    scores = np.arange(N, C)
     #############################################################################
     # TODO: Perform the forward pass, computing the class scores for the input. #
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    z2 = X.dot(W1) + b1
+    a2 = np.maximum(z2, np.zeros(z2.shape))
+
+    scores = a2.dot(W2) + b2
+
+    def softmax(x):
+        e_x = np.exp(x - np.max(x))
+        scores = e_x/np.sum(e_x)
+        return scores
+ 
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -92,7 +104,20 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    pass
+    
+    
+    loss = 0
+    for score, y_num in zip(scores, y):
+        score_softmax = softmax(score)
+        #print score_softmax
+        loss += np.log(score_softmax[y_num]) # Sum of Squared error
+        
+        
+    loss *= -1.0/N
+    loss += (reg*0.5)*(np.linalg.norm(W1)**2 + np.linalg.norm(W2)**2)
+                     
+    
+        
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
