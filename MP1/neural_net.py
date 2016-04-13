@@ -106,10 +106,9 @@ class TwoLayerNet(object):
     #############################################################################
     
     
-    loss = 0
+    loss = 0.0
     for score, y_num in zip(scores, y):
         score_softmax = softmax(score)
-        #print score_softmax
         loss += np.log(score_softmax[y_num]) # Sum of Squared error
         
         
@@ -129,7 +128,29 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    
+    def chain_rule(f, x, da, dz, h=1e-5):
+      """
+      Evaluate a numeric gradient for a function that accepts a numpy
+      array and returns a numpy array (using chain rule)
+      """
+      grad = np.zeros_like(x)
+      # FILL IN
+      return grad
+    
+    f = lambda W: loss
+    
+    
+    # Output unit
+    grads['W2'] = chain_rule(f, self.params['W2'], h=1e-5)
+    grads['b2'] = chain_rule(f, self.params['b2'], h=1e-5)
+    
+    # Other layer(s)
+    grads['W1'] = chain_rule(f, self.params['W1'], h=1e-5)
+    grads['b1'] = chain_rule(f, self.params['b1'], h=1e-5)
+    
+    
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
