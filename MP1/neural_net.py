@@ -40,6 +40,8 @@ class TwoLayerNet(object):
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
 
+    self.input_size   = input_size
+
   def loss(self, X, y=None, reg=0.0):
     """
     Compute the loss and gradients for a two layer fully connected neural
@@ -68,7 +70,7 @@ class TwoLayerNet(object):
     W2, b2 = self.params['W2'], self.params['b2']
     N, D = X.shape
 
-    C = len(self.params['b2'])
+    num_classes = self.params['b2'].shape[0]
 
     # Compute the forward pass
     #############################################################################
@@ -77,11 +79,9 @@ class TwoLayerNet(object):
     # shape (N, C).                                                             #
     #############################################################################
     z2 = X.dot(W1) + b1
-    h1 = z2
-    a2 = np.maximum(z2, np.zeros(z2.shape))
-
+    a2 = np.fmax(z2, np.zeros(z2.shape))
     z3 = a2.dot(W2) + b2
-    
+  
     def softmax(x, deriv=False):
         if deriv:
             # Return the derivative
@@ -93,10 +93,7 @@ class TwoLayerNet(object):
         return scores
    
  
-    
     a3 = z3 
-   
-    #print a3.shape, z3.shape
     scores = a3
  
     #############################################################################
@@ -118,19 +115,15 @@ class TwoLayerNet(object):
     #############################################################################
     
     y_new = np.empty(scores.shape)
-    d_scores = np.empty(scores.shape)
     loss = 0.0
-    for score, y_num in zip(scores, y):
-        
+    iter_ = zip(scores, y) 
+    for score, y_num in iter_:
         score_softmax = softmax(score)
         score_deriv   = softmax(score, deriv=True)
-        np.append(y_new, score_softmax) # Build up a (_, 3) y matrix
-        np.append(d_scores, score_deriv)
-        temp = np.log(score_softmax[y_num]) # Sum of Squared error
-        #print temp
+        np.append(y_new, score) # Build up a (_, num_classes) y matrix
+        temp = np.log(score_softmax[y_num])
         loss += temp 
-    
-     
+ 
     loss *= -1.0/N
     loss += (reg*0.5)*(np.linalg.norm(W1)**2 + np.linalg.norm(W2)**2)
         
@@ -149,22 +142,34 @@ class TwoLayerNet(object):
     #############################################################################
     
     # Output unit
-    delta3 =  -(y_new.T-a3.T).dot(d_scores)
-    grads['W2'] = np.dot(delta3, a3) 
-    grads['W2'] += reg*W2
-    grads['b2'] = delta3
+    delta3 = (-1.0/N)*(a3-y_new)
+    delta2 = np.dot(W2, delta3.T)*(a2.T>0)
+
+    dW2  = np.dot(a2.T, delta3)
+    dW2 += reg*W2
+
+    dW1  = np.dot(X.T, delta2.T)
+    dW1 += reg*W1
+
+    db2 = np.sum(delta3, axis = 0)
+    db1 = np.sum(delta2, axis = 1)
+
+    grads['W1'] = dW1
+    grads['W2'] = dW2
+    grads['b1'] = db1
+    grads['b2'] = db2
+
+    #grads['W2'] = np.dot(delta3, a3.T)
+    #grads['b2'] = delta3
  
     # earlier layer(s)
-    dh1 = np.ones((self.params['W1'].shape[0], 
-                   self.params['b2'].shape[0])) # 1 (ReLUs)
+    #dh1 = np.ones((num_classes, self.input_size)) # 1's (ReLU)
+    #print delta3.shape
 
-    W1_t  = np.transpose(W1)
-    delta2 = np.dot(W2,delta3).dot(dh1.T)
-
-    #delta2 = np.dot(W1, delta3)
-    grads['W1'] = np.dot(delta2, a2) 
-    grads['W1'] += reg*W1
-    grads['b1'] = delta2
+    #delta2 = delta2.dot(dh1)
+    #grads['W1'] = np.dot(a2, delta2).T 
+    #grads['W1'] += (reg*W1).T
+    #grads['b1'] = delta2
     
     
     #############################################################################
@@ -229,7 +234,7 @@ class TwoLayerNet(object):
       #########################################################################
       for key, grad in grads.items():
           step = np.multiply(learning_rate, grad)
-          print key, step
+          #print key, step
           self.params[key] -= step
 
       #########################################################################
@@ -276,7 +281,8 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    y_pred = self.loss(X)
+    scores = self.loss(X)
+    y_pred = np.argmax(scores, axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
