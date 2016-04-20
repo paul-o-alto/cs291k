@@ -79,27 +79,28 @@ class TwoLayerNet(object):
     # shape (N, C).                                                             #
     #############################################################################
     z2 = X.dot(W1) + b1
-    a2 = np.fmax(z2, np.zeros(z2.shape))
+    a2 = z2*(z2>0) #np.fmax(z2, np.zeros(z2.shape))
     z3 = a2.dot(W2) + b2
   
-    def softmax(x, deriv=False):
-        if deriv:
-            # Return the derivative
-            exps = np.exp(x)
-            others = exps.sum() - exps
-            return 1 / (2 + exps/others + others/exps)
+
+    def softmax(x):
+        """Compute softmax values for each sets of scores in x."""
         e_x = np.exp(x - np.max(x))
-        scores = e_x/np.sum(e_x)
-        return scores
-   
+        return e_x / e_x.sum()
  
+    
+
     a3 = z3 
-    scores = a3
+    
+    scores = np.apply_along_axis(softmax, 1, z3)
+    #print scores 
  
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
-    
+      
+
+
     # If the targets are not given then jump out, we're done
     if y is None:
       return scores
@@ -114,18 +115,22 @@ class TwoLayerNet(object):
     # regularization loss by 0.5                                                #
     #############################################################################
     
-    y_new = np.empty(scores.shape)
+    y_new = np.zeros_like(scores, dtype=np.float)
+    #print y_new
     loss = 0.0
-    iter_ = zip(scores, y) 
-    for score, y_num in iter_:
-        score_softmax = softmax(score)
-        score_deriv   = softmax(score, deriv=True)
-        np.append(y_new, score) # Build up a (_, num_classes) y matrix
-        temp = np.log(score_softmax[y_num])
-        loss += temp 
- 
+    iter_ = zip(xrange(0, scores.shape[0]), y)
+    #print iter_ 
+    for s_index, y_idx in iter_:
+        
+        loss += np.log(scores[s_index][y_idx])
+        
+        y_new[s_index,y_idx] = 1.0
+        #print temp
+        #np.append(y_new, temp)
+        #print y_new 
+    #print y_new
     loss *= -1.0/N
-    loss += (reg*0.5)*(np.linalg.norm(W1)**2 + np.linalg.norm(W2)**2)
+    loss += (reg*0.5)*(np.linalg.norm(W1,2)**2 + np.linalg.norm(W2,2)**2)
         
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -142,7 +147,8 @@ class TwoLayerNet(object):
     #############################################################################
     
     # Output unit
-    delta3 = (-1.0/N)*(a3-y_new)
+    delta3 = (1.0/N)*(a3-y_new)
+    #print delta3
     delta2 = np.dot(W2, delta3.T)*(a2.T>0)
 
     dW2  = np.dot(a2.T, delta3)
@@ -159,17 +165,6 @@ class TwoLayerNet(object):
     grads['b1'] = db1
     grads['b2'] = db2
 
-    #grads['W2'] = np.dot(delta3, a3.T)
-    #grads['b2'] = delta3
- 
-    # earlier layer(s)
-    #dh1 = np.ones((num_classes, self.input_size)) # 1's (ReLU)
-    #print delta3.shape
-
-    #delta2 = delta2.dot(dh1)
-    #grads['W1'] = np.dot(a2, delta2).T 
-    #grads['W1'] += (reg*W1).T
-    #grads['b1'] = delta2
     
     
     #############################################################################
