@@ -79,7 +79,7 @@ class TwoLayerNet(object):
     # shape (N, C).                                                             #
     #############################################################################
     z2 = X.dot(W1) + b1
-    a2 = z2*(z2>0) #np.fmax(z2, np.zeros(z2.shape))
+    a2 = z2*(z2>0) 
     z3 = a2.dot(W2) + b2
   
 

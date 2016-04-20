@@ -1,4 +1,5 @@
 import sys
+import time
 import numpy as np
 
 from neural_net import TwoLayerNet
@@ -55,11 +56,13 @@ hidden_size = 60
 num_classes = 10
 net = TwoLayerNet(input_size, hidden_size, num_classes)
 
+t_start = time.time()
 # Train the network
 stats = net.train(X_train, y_train, X_val, y_val,
             num_iters=10000, batch_size=200,
             learning_rate=1e-3, learning_rate_decay=0.95,
             reg=0.1, verbose=True)
+t_end = time.time()
 
 train_acc = (net.predict(X_train) == y_train).mean()
 print 'Training accuracy: ', train_acc
@@ -67,4 +70,5 @@ val_acc = (net.predict(X_val) == y_val).mean()
 print 'Validation accuracy: ', val_acc
 test_acc = (net.predict(X_test) == y_test).mean()
 print 'Test accuracy: ', test_acc
-
+time_taken = t_end - t_start
+print 'Training time (in mins): ', time_taken/60
