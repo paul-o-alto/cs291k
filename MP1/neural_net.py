@@ -93,7 +93,7 @@ class TwoLayerNet(object):
     a3 = z3 
     
     scores = np.apply_along_axis(softmax, 1, z3)
-    #print scores 
+     
  
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -116,21 +116,21 @@ class TwoLayerNet(object):
     #############################################################################
     
     y_new = np.zeros_like(scores, dtype=np.float)
-    #print y_new
+    
     loss = 0.0
     iter_ = zip(xrange(0, scores.shape[0]), y)
-    #print iter_ 
+     
     for s_index, y_idx in iter_:
         
         loss += np.log(scores[s_index][y_idx])
         
         y_new[s_index,y_idx] = 1.0
-        #print temp
-        #np.append(y_new, temp)
-        #print y_new 
-    #print y_new
+        
+        
+         
+    
     loss *= -1.0/N
-    loss += (reg*0.5)*(np.linalg.norm(W1,2)**2 + np.linalg.norm(W2,2)**2)
+    loss += (reg*0.5)*(np.linalg.norm(W1)**2 + np.linalg.norm(W2)**2)
         
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -148,7 +148,7 @@ class TwoLayerNet(object):
     
     # Output unit
     delta3 = (1.0/N)*(a3-y_new)
-    #print delta3
+    
     delta2 = np.dot(W2, delta3.T)*(a2.T>0)
 
     dW2  = np.dot(a2.T, delta3)
@@ -229,7 +229,7 @@ class TwoLayerNet(object):
       #########################################################################
       for key, grad in grads.items():
           step = np.multiply(learning_rate, grad)
-          #print key, step
+          
           self.params[key] -= step
 
       #########################################################################
