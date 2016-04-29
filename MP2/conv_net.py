@@ -7,15 +7,20 @@ from data_utils import *
 input_size = 32*32*3
 batch_size  = 100
 num_classes = 20
+dropout = False
+dropout_prob = 0.75
+learning_rate = 1e-2
+reg_strength = 0.1
+max_iters = 500000
 
 images_placeholder = tf.placeholder(tf.float32, 
                                     shape=(batch_size, 32, 32, 3),
                                     name='images')
-labels_placeholder = tf.placeholder(#tf.int32, 
-                                    tf.float32, 
-                                    shape=(batch_size,#),
+labels_placeholder = tf.placeholder(tf.float32, 
+                                    shape=(batch_size,
                                            num_classes), 
                                     name='labels')
+keep_prob = tf.placeholder(tf.float32) # for dropout
 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, 
@@ -31,49 +36,53 @@ def max_pool(x, k):
 
 
 # Organize 1st-layer
-with tf.name_scope('firstlayer-conv'): 
+with tf.name_scope('first-conv-layer'): 
 
-    #images_reshaped = tf.reshape(images_placeholder,
-    #                             shape=[-1, 32, 32, 3])
-    W_convl = tf.Variable(# 5x5 pixel patch, depth 3, 4 feature maps
+    W_convl1 = tf.Variable(# 5x5 pixel patch, depth 3, 4 feature maps
                   tf.truncated_normal(shape=[5,5,3,4], 
                                       stddev=1e-4))
-    b_convl = tf.constant(0.1, shape=[4]) # 4 feature maps
-    h_convl = tf.nn.relu(conv2d(#images_reshaped, 
-                                images_placeholder,
-                                W_convl) + b_convl)
+    b_convl1 = tf.constant(0.1, shape=[4]) # 4 feature maps
+    h_convl1 = tf.nn.relu(conv2d(images_placeholder,
+                                 W_convl1) + b_convl1)
 
 
-with tf.name_scope('secondlayer-maxpool'):
+with tf.name_scope('first-maxpool-layer'):
 
-    h_pool2 = max_pool(h_convl, 2) 
+    h_pool1 = max_pool(h_convl1, 2)
+    if dropout:
+        h_pool1 = tf.nn.dropout(h_pool1, dropout_prob) 
 
-with tf.name_scope('thirdlayer-conv'):
+with tf.name_scope('second-conv-layer'):
 
-    W_convl3 = tf.Variable(# 5x5 pixel patch, depth 4, 6 feature maps
+    W_convl2 = tf.Variable(# 5x5 pixel patch, depth 4, 6 feature maps
                    tf.truncated_normal(shape=[5,5,4,6], 
                                        stddev=1e-4))
-    b_convl3 = tf.constant(0.1, shape=[6]) # 6 feature maps? 
-    h_convl3 = tf.nn.relu(conv2d(h_pool2, W_convl3) + b_convl3)
+    b_convl2 = tf.constant(0.1, shape=[6]) 
+    h_convl2 = tf.nn.relu(conv2d(h_pool1, W_convl2) + b_convl2)
 
-with tf.name_scope('fourthlayer-maxpool'):
+with tf.name_scope('second-maxpool-layer'):
     
-    h_pool4 = max_pool(h_convl3, 2)
+    h_pool2 = max_pool(h_convl2, 2)
+    
+    if dropout:
+        tf.nn.dropout(h_pool2, dropout_prob)
 
 
 with tf.name_scope('fully-connected-hidden'):
 
     h_w = tf.Variable(
               tf.truncated_normal(
-                  [8*8*W_convl3.get_shape().as_list()[-1], 1024],
+                  [8*8*W_convl2.get_shape().as_list()[-1], 1024],
                   stddev=1.0/math.sqrt(float(input_size))),
               name='hidden_weights')
 
-    h_pool4 = tf.reshape(h_pool4, [-1, h_w.get_shape().as_list()[0]])
+    h_pool2 = tf.reshape(h_pool2, [-1, h_w.get_shape().as_list()[0]])
     h_b = tf.Variable(tf.zeros([1024]),
                       name='hidden_biases')
-    hidden = tf.nn.relu(tf.nn.bias_add(tf.matmul(h_pool4, 
+    hidden = tf.nn.relu(tf.nn.bias_add(tf.matmul(h_pool2, 
                                                  h_w), h_b))
+    if dropout:
+        hidden = tf.nn.dropout(hidden, dropout_prob)
 
 with tf.name_scope('fully-connected-mlp'):
     
@@ -87,42 +96,31 @@ with tf.name_scope('fully-connected-mlp'):
     logits = tf.add(tf.matmul(hidden, p_w), p_b)
 
 
-# Utility function to convert batch labels to one hot encoding
-# matrix
-#with tf.name_scope('make_one_hot'):
-#    sparse_labels = tf.reshape(labels_placeholder, [-1, 1])
-#    num_labels  = tf.shape(sparse_labels)[0]
-#    indices  = tf.reshape(tf.range(0, num_labels, 1), [-1, 1])
-#    concated = tf.concat(1, [indices, sparse_labels])
-#    outshape = tf.pack([num_labels, num_classes])
-#    labels   = tf.sparse_to_dense(concated,
-#                                  outshape, 1.0, 0.0)
 
-# Correct loss for convnet?
 with tf.name_scope('loss'):
-    # Need sparse_ version in order to not have to deal with the 
-    # one hot encoding ourselves (hopefully)
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
                               logits, 
                               #labels, 
                               labels_placeholder, 
                               name='xentropy')
-    loss = tf.reduce_mean(cross_entropy, name='xentropy_mean')
-    regularizers  = tf.nn.l2_loss(W_convl) + tf.nn.l2_loss(b_convl)
-    regularizers += tf.nn.l2_loss(W_convl3) + tf.nn.l2_loss(b_convl3)
+    cost = tf.reduce_mean(cross_entropy, name='xentropy_mean')
+    regularizers  = tf.nn.l2_loss(W_convl1) + tf.nn.l2_loss(b_convl1)
+    regularizers += tf.nn.l2_loss(W_convl2) + tf.nn.l2_loss(b_convl2)
     regularizers += tf.nn.l2_loss(h_w) + tf.nn.l2_loss(h_b)
     regularizers += tf.nn.l2_loss(p_w) + tf.nn.l2_loss(p_b)
-    reg = 0.1
-    loss += reg*regularizers
+    cost += reg_strength*regularizers
 
-tf.scalar_summary('loss', loss) # Does this go here?
+tf.scalar_summary('loss', cost)
 
-learning_rate = 1e-3 
-optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-train_op = optimizer.minimize(loss)
+optimizer = tf.train.GradientDescentOptimizer(
+                learning_rate).minimize(cost)
+
+# Evaluate
+correct_pred = tf.equal(tf.argmax(logits, 1), 
+                        tf.argmax(labels_placeholder, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
  
 
-max_iters = 100000
 with tf.Session() as sess:
     sess.run(tf.initialize_all_variables()) 
 
@@ -157,31 +155,47 @@ with tf.Session() as sess:
         return labels_one_hot
 
     step = 1
+    display_step = 10
     while step*batch_size < max_iters:
 
         offset = (step*batch_size) % (y_train.shape[0] - batch_size)
         batch_data   = X_train[offset:(offset + batch_size), :]
         batch_labels = y_train[offset:(offset + batch_size)]
         batch_labels = make_one_hot(batch_labels)
-        print batch_labels
-  
-        feed_dict = {images_placeholder:batch_data,
-                     labels_placeholder:batch_labels}
 
-        _, loss_value = sess.run([train_op, loss],feed_dict=feed_dict)
-
+        sess.run(optimizer,
+                 feed_dict={images_placeholder:batch_data,
+                            labels_placeholder:batch_labels,                                      keep_prob:dropout_prob})
+        if step % display_step == 0:
+            # Calculate batch accuracy
+            acc = sess.run(accuracy, 
+                          feed_dict={images_placeholder: batch_data, 
+                                     labels_placeholder: batch_labels,                                     keep_prob: 1.})
+            # Calculate batch loss
+            loss = sess.run(cost, 
+                          feed_dict={images_placeholder: batch_data, 
+                                     labels_placeholder: batch_labels,                                     keep_prob: 1.})
+            print "".join(["Iter ", str(step*batch_size),
+                           ", Minibatch Loss= ",
+                           "{:.6f}".format(loss),
+                           ", Test Accuracy= ",
+                           "{:.6f}".format(acc)])
+            
         #summary_str = sess.run(summary_op, feed_dict=feed_dict)
         #summary_writer.add_summary(summary_str, step)
-        print "Iteration "+str(step*batch_size)
-        print "Loss= %d" % loss_value
+        #print "Iteration "+str(step*batch_size)
+        #print "Loss= %d" % loss_value
         step += 1
 
     # Check test set
-    correct = tf.nn.in_top_k(logits, labels_placeholder, 1)
-    accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
+    #correct = tf.nn.in_top_k(logits, labels_placeholder, 1)
+    #accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
     feed_dict = {images_placeholder:X_test, 
                  labels_placeholder:y_test}
     precision = sess.run(accuracy, feed_dict=feed_dict)
+
+
+    
 
 
 # JUST FOR PROJECT?
