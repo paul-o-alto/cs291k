@@ -4,12 +4,14 @@ import math
 
 from data_utils import *
 
+log_dir = "./log_dir"
+
 input_size = 32*32*3
 batch_size  = 100
 num_classes = 20
 dropout = False
-dropout_prob = 0.75
-learning_rate = 1e-2
+dropout_prob = 0.95
+learning_rate = 1e-3
 reg_strength = 0.1
 max_iters = 500000
 
@@ -89,7 +91,7 @@ with tf.name_scope('fully-connected-mlp'):
     p_w = tf.Variable(
               tf.truncated_normal( 
                   [1024, num_classes],
-                  stddev=1.0),           #/math.sqrt(float(8*8))), 
+                  stddev=1.0),            
               name='output_weights')
     p_b = tf.Variable(tf.zeros([num_classes]),
                       name='output_biases')
@@ -155,7 +157,7 @@ with tf.Session() as sess:
         return labels_one_hot
 
     step = 1
-    display_step = 10
+    display_step = 2
     while step*batch_size < max_iters:
 
         offset = (step*batch_size) % (y_train.shape[0] - batch_size)
@@ -178,27 +180,33 @@ with tf.Session() as sess:
             print "".join(["Iter ", str(step*batch_size),
                            ", Minibatch Loss= ",
                            "{:.6f}".format(loss),
-                           ", Test Accuracy= ",
+                           ", Training Accuracy= ",
                            "{:.6f}".format(acc)])
             
         #summary_str = sess.run(summary_op, feed_dict=feed_dict)
         #summary_writer.add_summary(summary_str, step)
-        #print "Iteration "+str(step*batch_size)
-        #print "Loss= %d" % loss_value
         step += 1
+
+        #saver = tf.train.Saver()
+        #saver.save(sess, os.path.join(log_dir, 'checkpoint'),
+        #           global_step=step+1)
 
     # Check test set
     #correct = tf.nn.in_top_k(logits, labels_placeholder, 1)
     #accuracy = tf.reduce_mean(tf.cast(correct, tf.int32))
-    feed_dict = {images_placeholder:X_test, 
-                 labels_placeholder:y_test}
-    precision = sess.run(accuracy, feed_dict=feed_dict)
+    step = 1
+    while step*batch_size < 10000:
 
+        offset = (step*batch_size) % (y_test.shape[0] - batch_size)
+        batch_data   = X_test[offset:(offset + batch_size), :]
+        batch_labels = y_test[offset:(offset + batch_size)]
+        feed_dict = {images_placeholder:batch_data, 
+                     labels_placeholder:make_one_hot(batch_labels),
+                     keep_prob: 1.}
+        precision = sess.run(accuracy, feed_dict=feed_dict)
+        print "Test Accuracy= {:.6f}".format(precision)
 
-    
-
-
-# JUST FOR PROJECT?
 #saver = tf.train.saver()
-#saver.save(sess, os.path.join(log_dir, 'checkpoint'), global_step=step+1)
+#saver.save(sess, os.path.join(log_dir, 'checkpoint'), 
+#           global_step=step+1)
 
